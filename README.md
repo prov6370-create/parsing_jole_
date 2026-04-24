@@ -1,20 +1,39 @@
-# 💄 Asynchronous Cosmetics Scraper (azi.ua)
+💄 Asynchronous Cosmetics Scraper (azi.ua)
 
-Professional Python-based web scraping tool designed to extract product data from an online store and store it in a structured SQLite database. Built with a focus on speed, reliability, and data integrity.
+Асинхронный парсер для сбора данных с интернет-магазина azi.ua с сохранением информации в SQLite базу данных.
 
-## 🚀 Key Features
-- **High-Speed Execution:** Leverages `asyncio` and `aiohttp` for concurrent page processing.
-- **Request Throttling:** Implements `asyncio.Semaphore` to manage concurrency and prevent server-side blocking.
-- **Dynamic Database Architecture:** Automatically generates separate SQLite tables for each product category found.
-- **Data Deduplication:** Uses `UNIQUE` constraints and `INSERT OR IGNORE` logic to ensure a clean database without duplicates.
-- **Smart Pagination:** Automatically detects the number of pages in each category and crawls them all.
+🚀 Возможности
+Асинхронный сбор данных (asyncio + aiohttp)
+Высокая скорость обработки страниц
+Ограничение нагрузки на сервер (Semaphore)
+Автоматический обход всех страниц категорий
+Создание отдельных таблиц для каждой категории
+Защита от дублей (UNIQUE + INSERT OR IGNORE)
+🛠 Технологии
+Python 3.10+
+aiohttp
+asyncio
+BeautifulSoup4
+SQLite3
+re
+📊 Что собирается
 
-## 🛠 Tech Stack
-- **Language:** Python 3.10+
-- **Libraries:** BeautifulSoup4, aiohttp, asyncio, SQLite3, re
-- **Architecture:** Asynchronous, Multi-layered parsing
+Для каждого товара:
 
-## ⚙️ Installation & Usage
-1. Clone the repository:
-   ```bash
-   git clone [https://github.com/your-username/your-repo-name.git](https://github.com/your-username/your-repo-name.git)
+Название
+Цена
+Категория
+Дополнительные параметры (если есть на странице)
+⚙️ Как запустить
+git clone https://github.com/your-username/your-repo-name.git
+cd your-repo-name
+pip install -r requirements.txt
+python main.py
+📁 Результат
+SQLite база данных
+Отдельные таблицы по категориям
+Структурированные данные без дублей
+💡 Особенности
+Подходит для больших объёмов данных
+Устойчив к нагрузке на сервер
+Легко адаптируется под другие сайты
