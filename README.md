@@ -1,39 +1,47 @@
-💄 Asynchronous Cosmetics Scraper (azi.ua)
+# 💄 Asynchronous Cosmetics Scraper | `azi.ua`
 
-Асинхронный парсер для сбора данных с интернет-магазина azi.ua с сохранением в SQLite базу данных.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Aiohttp](https://img.shields.io/badge/Aiohttp-Async--Request-FFD43B?style=for-the-badge&logo=python&logoColor=black)
+![SQLite](https://img.shields.io/badge/SQLite3-Storage-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Production--Ready-success?style=for-the-badge)
 
-🚀 Возможности
-Асинхронный парсинг (asyncio + aiohttp)
-Параллельная обработка страниц
-Контроль нагрузки на сервер (Semaphore)
-Автоматический обход категорий
-Сохранение структуры данных в SQLite
-Защита от дублей (UNIQUE + INSERT OR IGNORE)
-🛠 Технологии
-Python 3.10+
-aiohttp
-asyncio
-BeautifulSoup4
-SQLite3
-📊 Данные
-Название товара
-Цена
-Категория
-Дополнительные параметры (если есть)
-⚙️ Запуск
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
-pip install -r requirements.txt
-python main.py
-📁 Результат
-SQLite база данных
-Разделение по категориям
-Чистые данные без дублей
-🎯 Назначение
-анализ рынка
-мониторинг цен
-сбор данных
-автоматизация парсинга
-💡 Суть проекта
+**Високопродуктивний асинхронний інструмент** для повного витягування даних з маркетплейсу косметики. Побудований на базі неблокуючого вводу-виводу для досягнення максимальної швидкості.
 
-Асинхронный скрапер, который стабильно собирает данные с сайта и сохраняет их в структурированном виде для дальнейшего анализа.
+---
+
+### 🚀 Ключові фішки
+
+* **⚡️ Turbo Async Engine**: Використання `asyncio` та `aiohttp` дозволяє парсити сотні товарів одночасно, що в рази швидше за звичайні синхронні скрипти.
+* **🛡 Smart Load Control**: Вбудований семафор (`Semaphore`) обмежує кількість паралельних запитів, імітуючи органічне навантаження та запобігаючи бану.
+* **📂 Dynamic DB Schema**: Скрипт на льоту аналізує категорії магазину та автоматично створює для кожної з них окрему таблицю в SQLite.
+* **💎 Data Integrity**: Система `UNIQUE` ключів та стратегія `INSERT OR IGNORE` гарантують відсутність дублів у вашій базі.
+
+---
+
+### 📊 Об'єкти збору (Dataset)
+
+Парсер витягує повний набір даних про кожен товар:
+* ✅ **Назва** (Title) — повне найменування.
+* ✅ **Ціна** (Price) — актуальна вартість у числовому форматі.
+* ✅ **Категорія** (Category) — автоматичне групування.
+* ✅ **Параметри** (Specs) — об'єм, країна-виробник, тип шкіри тощо.
+
+---
+
+### 🛠 Технологічний стек
+
+| Компонент | Технологія | Роль у проекті |
+| :--- | :--- | :--- |
+| **Runtime** | `Python 3.10+` | Основа логіки та керування потоками |
+| **Networking** | `aiohttp` | Блискавичні асинхронні HTTP-запити |
+| **Parsing** | `BS4 (LXML)` | Високоточне витягування даних з DOM |
+| **Database** | `SQLite3` | Надійне локальне сховище без зайвих залежностей |
+
+---
+
+### ⚙️ Встановлення та запуск
+
+1. **Клонуй репозиторій:**
+   ```bash
+   git clone [https://github.com/your-username/azi-scraper.git](https://github.com/your-username/azi-scraper.git)
+   cd azi-scraper
