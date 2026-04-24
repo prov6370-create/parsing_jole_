@@ -1,192 +1,164 @@
 import asyncio
 import aiohttp
 import sqlite3
-from aiohttp import ClientSession
+from aiohttp import ClientError
 from bs4 import BeautifulSoup
 import re
 
 
-
-
-def header():
-    headers = {
+# ---------------- HEADERS ----------------
+def get_headers():
+    return {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'uk-UA,uk;q=0.9,ru;q=0.8,en;q=0.7',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
     }
-    return headers
 
-async def fetch(session, url, semaphore, raz=3):
+
+# ---------------- FETCH ----------------
+async def fetch(session, url, semaphore, retries=3):
     async with semaphore:
-        for item in range(raz):
+        for _ in range(retries):
             try:
                 async with session.get(url) as response:
                     response.raise_for_status()
                     return await response.text()
-            except (ClientSession, aiohttp.ClientConnectorError) as e:
-                print(f'ошыбка url {url} название ошибки {e} ')
-            await asyncio.sleep(2)
 
-async def parsing_url_catalog():
-    headers = header()
-    url_golovna_storinca = 'https://azi.ua/'
-    async with aiohttp.ClientSession(headers=headers) as session:
+            except ClientError as e:
+                print(f"[ERROR] {url}: {e}")
+                await asyncio.sleep(2)
+
+    return None
+
+
+# ---------------- GET CATALOG ----------------
+async def get_catalog():
+    url = 'https://azi.ua/'
+
+    async with aiohttp.ClientSession(headers=get_headers()) as session:
         semaphore = asyncio.Semaphore(10)
-        html = await fetch(session, url_golovna_storinca, semaphore)
+
+        html = await fetch(session, url, semaphore)
         soup = BeautifulSoup(html, 'html.parser')
-        storinka_catalogov = soup.find('ul', class_='relative')
 
-        # Твой паттерн правильный, оставляем его
-        pattern = re.compile(
-            r'menu-item menu-item-type-taxonomy menu-item-object-product_cat menu-item-has-children menu-item-\d+')
+        menu = soup.find('ul', class_='relative')
+        pattern = re.compile(r'menu-item.*product_cat.*')
 
-        catalog = storinka_catalogov.find_all('li', class_=pattern, recursive=False)
+        catalog = []
 
-        url_catalog = []
-
-        for catalo in catalog:
-            catalog_url = catalo.find('a', recursive=False)
-            if catalog_url:
-                url_catalog.append({'name':catalog_url.text.strip(), 'catalog_url':catalog_url['href']})
-
-    return url_catalog
-
-
-async def parsing_max_pag():
-    url_catalog = await parsing_url_catalog()
-    headers = header()
-    async with aiohttp.ClientSession(headers=headers) as session:
-        semaphore = asyncio.Semaphore(10)
-        tasks = [fetch(session, item['catalog_url'], semaphore) for item in url_catalog]
-        html_url_catalog = await asyncio.gather(*tasks)
-        for html, item in zip(html_url_catalog, url_catalog):
-            max_pag = 1
-            name = item['name']
-            soup = BeautifulSoup(html, 'html.parser')
-
-            # 1. Ищем контейнер навигации аккуратно
-            nav = soup.find('nav', class_='woocommerce-pagination')
-
-            if nav:
-                pag_links = nav.find_all(['a', 'span'], class_='page-numbers')
-
-                pages = []
-                for link in pag_links:
-                    text = link.text.strip()
-                    if text.isdigit():
-                        pages.append(int(text))
-
-                if pages:
-                    max_pag = max(pages)
-
-            item['max_pag'] = max_pag
-    return url_catalog
-
-
-async def parsing_result():
-    url_catalog = await parsing_max_pag()
-    headers = header()
-    result_html_nema = []
-    async with aiohttp.ClientSession(headers=headers) as session:
-        semaphore = asyncio.Semaphore(10)
-        tasks = []
-        for item in url_catalog:
-            max_p = item.get('max_pag', 1)
-            for p in range(1, max_p + 1):
-                url = f"{item['catalog_url']}?paged={p}"
-                tasks.append(fetch(session, url, semaphore))
-        html_url_catalog = await asyncio.gather(*tasks)
-        result_html_nema = []
-        html_index = 0
-
-        for item in url_catalog:
-            name = item.get('name')
-            max_p = item.get('max_pag', 1)
-
-            for p in range(1, max_p + 1):
-
-                current_html = html_url_catalog[html_index]
-
-                result_html_nema.append({
-                    'name': name,
-                    'quantity': p,
-                    'html': current_html
+        for li in menu.find_all('li', class_=pattern, recursive=False):
+            a = li.find('a')
+            if a:
+                catalog.append({
+                    'name': a.text.strip(),
+                    'url': a['href']
                 })
 
-                html_index += 1
-
-    return result_html_nema
+        return catalog
 
 
-async def parcing_nema_price():
-    url_catalog = await parsing_result()
-    all_products = []
+# ---------------- GET PAGES ----------------
+async def get_pages(catalog):
+    async with aiohttp.ClientSession(headers=get_headers()) as session:
+        semaphore = asyncio.Semaphore(10)
 
-    for item in url_catalog:
-        soup = BeautifulSoup(item['html'], 'html.parser')
+        tasks = [fetch(session, item['url'], semaphore) for item in catalog]
+        pages_html = await asyncio.gather(*tasks)
 
-        products = soup.find_all('div', class_='info')
-
-        for prod in products:
-            try:
-
-                name_el = prod.find('h3', class_='title')
-                name = name_el.get_text(strip=True) if name_el else "Без названия"
-                price_div = prod.find('div', class_='price')
-                price = "0"
-                if price_div:
-                    # Берем текст из span (там где 440 грн)
-                    price_span = price_div.find('span')
-                    if price_span:
-                        price = price_span.get_text(strip=True)
-                    else:
-                        price = price_div.get_text(strip=True)
-
-                all_products.append({
-                    'category': item['name'],
-                    'title': name,
-                    'price': price
-                })
-
-            except Exception:
+        for html, item in zip(pages_html, catalog):
+            if not html:
+                item['pages'] = 1
                 continue
 
-    return all_products
+            soup = BeautifulSoup(html, 'html.parser')
+            nav = soup.find('nav', class_='woocommerce-pagination')
+
+            pages = [1]
+
+            if nav:
+                for p in nav.find_all(['a', 'span'], class_='page-numbers'):
+                    if p.text.strip().isdigit():
+                        pages.append(int(p.text.strip()))
+
+            item['pages'] = max(pages)
+
+        return catalog
 
 
-async def database():
-    result = await parcing_nema_price()
+# ---------------- COLLECT PRODUCTS ----------------
+async def collect_products(catalog):
+    async with aiohttp.ClientSession(headers=get_headers()) as session:
+        semaphore = asyncio.Semaphore(10)
+
+        tasks = []
+
+        for cat in catalog:
+            for page in range(1, cat['pages'] + 1):
+                url = f"{cat['url']}?paged={page}"
+                tasks.append((cat['name'], fetch(session, url, semaphore)))
+
+        results = await asyncio.gather(*[t[1] for t in tasks])
+
+        products = []
+        idx = 0
+
+        for cat in catalog:
+            for _ in range(cat['pages']):
+                html = results[idx]
+                idx += 1
+
+                if not html:
+                    continue
+
+                soup = BeautifulSoup(html, 'html.parser')
+                items = soup.find_all('div', class_='info')
+
+                for item in items:
+                    title = item.find('h3', class_='title')
+                    price = item.find('div', class_='price')
+
+                    products.append({
+                        'category': cat['name'],
+                        'title': title.get_text(strip=True) if title else 'N/A',
+                        'price': price.get_text(strip=True) if price else '0'
+                    })
+
+        return products
+
+
+# ---------------- DATABASE ----------------
+def save_to_db(products):
     conn = sqlite3.connect('cosmetics_store.db')
     cursor = conn.cursor()
-    for row in result:
-        category = row['category']
-        price = row['price']
-        title = row['title']
-        table_name = f"cat_{re.sub(r'\W+', '_', category)}"
-        cursor.execute(f"""CREATE TABLE IF NOT EXISTS "{category}" (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-title TEXT UNIQUE,
-price REAL
-)""")
+
+    for p in products:
+        safe_category = re.sub(r'\W+', '_', p['category'])
 
         cursor.execute(f"""
-                    INSERT OR IGNORE INTO "{category}" (title, price)
-                    VALUES (?, ?)
-                """, (title, price))
+            CREATE TABLE IF NOT EXISTS "{safe_category}" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT UNIQUE,
+                price TEXT
+            )
+        """)
+
+        cursor.execute(f"""
+            INSERT OR IGNORE INTO "{safe_category}" (title, price)
+            VALUES (?, ?)
+        """, (p['title'], p['price']))
 
     conn.commit()
     conn.close()
-    print("Данные успешно сохранены без дублей!")
+    print("[OK] Data saved successfully")
 
 
+# ---------------- MAIN ----------------
 async def main():
-    catalog = await database()
+    catalog = await get_catalog()
+    catalog = await get_pages(catalog)
+    products = await collect_products(catalog)
+    save_to_db(products)
 
 
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(main())
