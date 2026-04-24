@@ -184,7 +184,6 @@ price REAL
 
 async def main():
     catalog = await database()
-    print('все готово ура нахуй')
 
 
 
